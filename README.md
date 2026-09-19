@@ -228,13 +228,4 @@ This runs:
 
 ---
 
-## 🗺️ Roadmap (The 6-Phase Vision)
 
-As outlined in [plan.md](file:///c:/Users/vishal/Documents/F.L.A.R.E/plan.md), F.L.A.R.E evolves through six modular phases:
-
-- **Phase 1: Core Foundation** (Brain, Task Orchestrator, Basic Tools, 3-Tier Security Gateway)
-- **Phase 2: Give Flare Hands** (File Search, Safe Terminal Runner, Playwright Browser Automation)
-- **Phase 3: Autonomy & Continuity** (DeepSeek Execution Harness, Pause/Resume State Vault)
-- **Phase 4: Audio Pipeline** (Wake Word, Silero VAD, Faster-Whisper STT, Edge-TTS with Barge-In)
-- **Phase 5: Screen Vision** (Desktop Capture, Visual Debugging, Cross-Tool Diagnostic Chaining)
-- **Phase 6: Daily Companion** (Persistent Vector Memory Graph, Cron Scheduler, Morning Briefings)
