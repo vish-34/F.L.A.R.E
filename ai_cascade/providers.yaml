@@ -1,0 +1,215 @@
+# ==============================================================================
+#                  FLARE AI CASCADE — MODEL PROVIDER REGISTRY (2026)
+# ==============================================================================
+# Modernized 2026 Registry:
+# - Groq: GPT-OSS 20B (snappy chat), GPT-OSS 120B (tools), Qwen 3.6 27B (light reasoning/code)
+# - Cerebras: GPT-OSS 120B (3,000 tps), GLM-4.7 (1,000 tps code agent)
+# - Gemini: 3.5 Flash-Lite (low latency subagent), 3.5 Flash (tools/code), 3.1 Pro (reasoning)
+# - NVIDIA NIM: DeepSeek V4 Pro, Kimi K3 (2.8T MoE), Nemotron 3 Ultra (1M context)
+# - Mistral: Devstral 2 / Devstral Small 2 (code), Mistral Small 4 (tools), Magistral (reasoning)
+# - OpenRouter: openrouter/free & nvidia/nemotron-3-ultra:free
+# - Ollama (Local): Gemma 4, Qwen 3.5/3.8, Qwen 3 Coder Next
+# ==============================================================================
+
+tiers:
+  # ----------------------------------------------------------------------------
+  # ⚡ FLARE-FAST: Greetings, Casual Banter, Voice Acknowledgment (Lowest TTFT)
+  # ----------------------------------------------------------------------------
+  flare-fast:
+    description: "Lowest time-to-first-token engine for snappy, instantaneous Jarvis banter"
+    primary:
+      provider: "groq"
+      model: "groq/openai/gpt-oss-20b"
+      temperature: 0.7
+      max_tokens: 250
+    fallbacks:
+      - provider: "cerebras"
+        model: "cerebras/gpt-oss-120b"
+        temperature: 0.7
+        max_tokens: 250
+      - provider: "groq"
+        model: "groq/qwen/qwen3.6-27b"
+        temperature: 0.7
+        max_tokens: 250
+      - provider: "gemini"
+        model: "gemini/gemini-3.5-flash-lite"
+        temperature: 0.7
+        max_tokens: 250
+      - provider: "openrouter"
+        model: "openrouter/openrouter/free"
+        temperature: 0.7
+        max_tokens: 250
+      - provider: "ollama"
+        model: "ollama/gemma4:e2b"
+        temperature: 0.7
+        max_tokens: 250
+
+  # ----------------------------------------------------------------------------
+  # 🛠️ FLARE-TOOLS: App Control, Window Management & Web Search Tools
+  # ----------------------------------------------------------------------------
+  flare-tools:
+    description: "Function calling, JSON mode, structured output, and browser/system actions"
+    primary:
+      provider: "groq"
+      model: "groq/openai/gpt-oss-120b"
+      temperature: 0.2
+      max_tokens: 1000
+    fallbacks:
+      - provider: "gemini"
+        model: "gemini/gemini-3.5-flash"
+        temperature: 0.2
+        max_tokens: 1000
+      - provider: "cerebras"
+        model: "cerebras/gpt-oss-120b"
+        temperature: 0.2
+        max_tokens: 1000
+      - provider: "mistral"
+        model: "mistral/mistral-small-latest"
+        temperature: 0.2
+        max_tokens: 1000
+      - provider: "openrouter"
+        model: "openrouter/openrouter/free"
+        temperature: 0.2
+        max_tokens: 1000
+      - provider: "ollama"
+        model: "ollama/qwen3.5:9b"
+        temperature: 0.2
+        max_tokens: 1000
+
+  # ----------------------------------------------------------------------------
+  # 💻 FLARE-CODER-LIGHT: Quick Scripts, Syntax, Regex, Simple Functions
+  # ----------------------------------------------------------------------------
+  flare-coder-light:
+    description: "Lightweight, sub-second code generation handled directly by fast LPUs"
+    primary:
+      provider: "groq"
+      model: "groq/qwen/qwen3.6-27b"
+      temperature: 0.2
+      max_tokens: 1000
+    fallbacks:
+      - provider: "cerebras"
+        model: "cerebras/glm-4.7"
+        temperature: 0.2
+        max_tokens: 1000
+      - provider: "mistral"
+        model: "mistral/devstral-small-latest"
+        temperature: 0.2
+        max_tokens: 1000
+      - provider: "gemini"
+        model: "gemini/gemini-3.5-flash"
+        temperature: 0.2
+        max_tokens: 1000
+      - provider: "openrouter"
+        model: "openrouter/openrouter/free"
+        temperature: 0.2
+        max_tokens: 1000
+      - provider: "ollama"
+        model: "ollama/qwen3.8:27b"
+        temperature: 0.2
+        max_tokens: 1000
+
+  # ----------------------------------------------------------------------------
+  # 🚀 FLARE-CODER-HEAVY: Deep Specialist Workhorse (DeepSeek V4, Kimi K3, Nemotron)
+  # ----------------------------------------------------------------------------
+  flare-coder-heavy:
+    description: "Deep specialist coding workhorse for full-stack, concurrency, and architecture"
+    primary:
+      provider: "nvidia"
+      model: "openai/deepseek-v4-pro-0813"
+      api_base: "https://integrate.api.nvidia.com/v1"
+      temperature: 0.2
+      max_tokens: 3000
+    fallbacks:
+      - provider: "nvidia"
+        model: "openai/kimi-k3"
+        api_base: "https://integrate.api.nvidia.com/v1"
+        temperature: 0.2
+        max_tokens: 3000
+      - provider: "nvidia"
+        model: "openai/nemotron-3-ultra-550b-a55b"
+        api_base: "https://integrate.api.nvidia.com/v1"
+        temperature: 0.2
+        max_tokens: 3000
+      - provider: "cerebras"
+        model: "cerebras/glm-4.7"
+        temperature: 0.2
+        max_tokens: 3000
+      - provider: "mistral"
+        model: "mistral/devstral-latest"
+        temperature: 0.2
+        max_tokens: 3000
+      - provider: "openrouter"
+        model: "openrouter/openrouter/free"
+        temperature: 0.2
+        max_tokens: 3000
+      - provider: "ollama"
+        model: "ollama/qwen3-coder-next"
+        temperature: 0.2
+        max_tokens: 3000
+
+  # ----------------------------------------------------------------------------
+  # 💡 FLARE-REASONER-LIGHT: General Explanations, Math, Comparisons & Concepts
+  # ----------------------------------------------------------------------------
+  flare-reasoner-light:
+    description: "High-intellect direct reasoning without slow <think> chain overhead"
+    primary:
+      provider: "groq"
+      model: "groq/qwen/qwen3.6-27b"
+      temperature: 0.5
+      max_tokens: 1500
+    fallbacks:
+      - provider: "cerebras"
+        model: "cerebras/gpt-oss-120b"
+        temperature: 0.5
+        max_tokens: 1500
+      - provider: "gemini"
+        model: "gemini/gemini-3.5-flash"
+        temperature: 0.5
+        max_tokens: 1500
+      - provider: "openrouter"
+        model: "openrouter/openrouter/free"
+        temperature: 0.5
+        max_tokens: 1500
+      - provider: "ollama"
+        model: "ollama/qwen3.5:27b"
+        temperature: 0.5
+        max_tokens: 1500
+
+  # ----------------------------------------------------------------------------
+  # 🧠 FLARE-REASONER-HEAVY: Deep Multi-Step Planning & Complex Analysis Workhorse
+  # ----------------------------------------------------------------------------
+  flare-reasoner-heavy:
+    description: "Heavy reasoning specialist brain powered by DeepSeek V4 Pro & Nemotron 3 Ultra"
+    primary:
+      provider: "nvidia"
+      model: "openai/deepseek-v4-pro-0813"
+      api_base: "https://integrate.api.nvidia.com/v1"
+      temperature: 0.6
+      max_tokens: 4000
+    fallbacks:
+      - provider: "nvidia"
+        model: "openai/nemotron-3-ultra-550b-a55b"
+        api_base: "https://integrate.api.nvidia.com/v1"
+        temperature: 0.6
+        max_tokens: 4000
+      - provider: "nvidia"
+        model: "openai/kimi-k3"
+        api_base: "https://integrate.api.nvidia.com/v1"
+        temperature: 0.6
+        max_tokens: 4000
+      - provider: "gemini"
+        model: "gemini/gemini-3.1-pro"
+        temperature: 0.6
+        max_tokens: 4000
+      - provider: "openrouter"
+        model: "openrouter/nvidia/nemotron-3-ultra:free"
+        temperature: 0.6
+        max_tokens: 4000
+      - provider: "cerebras"
+        model: "cerebras/gpt-oss-120b"
+        temperature: 0.6
+        max_tokens: 4000
+      - provider: "ollama"
+        model: "ollama/qwen3.8:27b"
+        temperature: 0.6
+        max_tokens: 4000
