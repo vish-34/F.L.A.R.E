@@ -524,6 +524,8 @@ class AppManager:
         for vk in vk_list:
             user32.keybd_event(vk, 0, 0, 0)
 
+        time.sleep(0.03)  # 30ms hold so Windows and browser event loops register key combo
+
         # Release keys in reverse order
         for vk in reversed(vk_list):
             user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
@@ -533,4 +535,248 @@ class AppManager:
             "hotkey": hotkey,
             "status": f"Sent keyboard hotkey: {hotkey.upper()}",
         }
+
+    @staticmethod
+    def focus_app(app_name: Optional[str] = None) -> bool:
+        """
+        Bring the target application window to the foreground.
+        If app_name is omitted, searches for active browser (brave, chrome, edge, code).
+        """
+        import ctypes
+        import ctypes.wintypes
+        user32 = ctypes.windll.user32
+
+        candidates = [app_name.lower()] if app_name else ["brave", "chrome", "edge", "code", "firefox"]
+        found_hwnd = None
+
+        def enum_cb(hwnd, lparam):
+            nonlocal found_hwnd
+            if found_hwnd:
+                return False
+            if user32.IsWindowVisible(hwnd):
+                length = user32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(hwnd, buf, length + 1)
+                    title = buf.value.lower()
+                    pid = ctypes.wintypes.DWORD()
+                    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                    try:
+                        p = psutil.Process(pid.value)
+                        p_name = p.name().lower()
+                        for c in candidates:
+                            if c in p_name or c in title:
+                                found_hwnd = hwnd
+                                return False
+                    except Exception:
+                        pass
+            return True
+
+        EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+        user32.EnumWindows(EnumProc(enum_cb), 0)
+
+        if found_hwnd:
+            try:
+                # Windows foreground lock bypass
+                user32.ShowWindow(found_hwnd, 9)  # SW_RESTORE
+                user32.keybd_event(0x12, 0, 0, 0)  # Alt down
+                user32.SetForegroundWindow(found_hwnd)
+                user32.keybd_event(0x12, 0, 2, 0)  # Alt up
+                return True
+            except Exception:
+                pass
+        return False
+
+    @staticmethod
+    def switch_tab(direction: str = "next", app_target: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Switch tabs in the active or target application (Ctrl+Tab or Ctrl+Shift+Tab).
+        Tier: 🟢 SAFE
+        """
+        AppManager.focus_app(app_target)
+        time.sleep(0.06)
+
+        hotkey = "ctrl+tab" if direction.lower() in ["next", "forward"] else "ctrl+shift+tab"
+        res = AppManager.send_hotkey(hotkey)
+        return {
+            "success": res.get("success", False),
+            "direction": direction,
+            "hotkey": hotkey,
+            "status": f"Switched to {direction} tab ({hotkey.upper()}).",
+        }
+
+    @staticmethod
+    def new_tab(app_target: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Open a new tab (Ctrl+T) in the target or active browser.
+        Tier: 🟢 SAFE
+        """
+        AppManager.focus_app(app_target)
+        time.sleep(0.06)
+        return AppManager.send_hotkey("ctrl+t")
+
+    @staticmethod
+    def close_tab(app_target: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Close active tab (Ctrl+W) in the target or active browser.
+        Tier: 🟢 SAFE
+        """
+        AppManager.focus_app(app_target)
+        time.sleep(0.06)
+        return AppManager.send_hotkey("ctrl+w")
+
+    @staticmethod
+    def switch_window() -> Dict[str, Any]:
+        """
+        Switch to the next active application window (Alt+Tab).
+        Tier: 🟢 SAFE
+        """
+        return AppManager.send_hotkey("alt+tab")
+
+    @staticmethod
+    def show_task_view() -> Dict[str, Any]:
+        """
+        Open Windows Task View (Win + Tab) to tile and display all open app windows
+        like a 3-finger touchpad swipe.
+        Tier: 🟢 SAFE
+        """
+        import ctypes
+        user32 = ctypes.windll.user32
+        VK_LWIN = 0x5B
+        VK_TAB = 0x09
+        KEYEVENTF_KEYUP = 0x0002
+
+        user32.keybd_event(VK_LWIN, 0, 0, 0)
+        user32.keybd_event(VK_TAB, 0, 0, 0)
+        time.sleep(0.04)
+        user32.keybd_event(VK_TAB, 0, KEYEVENTF_KEYUP, 0)
+        user32.keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0)
+
+        return {
+            "success": True,
+            "status": "Opened Windows Task View (All open apps displayed in small windows).",
+        }
+
+    @staticmethod
+    def format_running_apps() -> Dict[str, Any]:
+        """
+        Return a clean human-readable list of currently open applications with window titles.
+        Tier: 🟢 SAFE
+        """
+        apps = AppManager.list_running_apps(include_background=False)
+        # Filter for apps with visible window titles or well-known interactive apps
+        interactive = [
+            a for a in apps
+            if a.get("window_title") or a.get("name", "").lower() in [
+                "code.exe", "brave.exe", "chrome.exe", "msedge.exe", "notepad.exe",
+                "spotify.exe", "windowsterminal.exe", "calc.exe", "explorer.exe"
+            ]
+        ]
+        display_list = interactive or apps[:10]
+
+        lines = []
+        for i, a in enumerate(display_list, 1):
+            title = f" — '{a['window_title']}'" if a.get('window_title') else ""
+            lines.append(f"  {i}. {a['name'].replace('.exe', '').title()}{title} (PID: {a['pid']} | {a['memory_mb']} MB)")
+
+        formatted = "Currently Open Applications:\n" + ("\n".join(lines) if lines else "  No interactive GUI applications detected.")
+        return {
+            "success": True,
+            "count": len(display_list),
+            "apps": display_list,
+            "status": formatted,
+        }
+
+    @staticmethod
+    def switch_and_fullscreen_app(app_identifier: str, minimize_others: bool = True) -> Dict[str, Any]:
+        """
+        Switch to the specified app, minimize others, and maximize the target window to full screen.
+        Works dynamically for every application (Brave, VS Code, Notepad, Spotify, Chrome, Terminal, etc.).
+        Tier: 🟢 SAFE
+        """
+        import ctypes
+        import ctypes.wintypes
+        user32 = ctypes.windll.user32
+
+        clean_target = app_identifier.strip().lower().replace(".exe", "")
+        alias_map = {
+            "vs code": "code",
+            "visual studio code": "code",
+            "brave browser": "brave",
+            "chrome browser": "chrome",
+            "task manager": "taskmgr",
+            "file explorer": "explorer",
+        }
+        target_name = alias_map.get(clean_target, clean_target)
+
+        # 1. Optionally minimize all windows first (Win + D) so others are out of the way
+        if minimize_others:
+            user32.keybd_event(0x5B, 0, 0, 0)  # Win down
+            user32.keybd_event(0x44, 0, 0, 0)  # D down
+            time.sleep(0.02)
+            user32.keybd_event(0x44, 0, 2, 0)  # D up
+            user32.keybd_event(0x5B, 0, 2, 0)  # Win up
+            time.sleep(0.12)
+
+        # 2. Find target app window
+        target_hwnd = None
+        target_title = ""
+
+        def enum_cb(hwnd, lparam):
+            nonlocal target_hwnd, target_title
+            if target_hwnd:
+                return False
+            if user32.IsWindowVisible(hwnd):
+                length = user32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(hwnd, buf, length + 1)
+                    title = buf.value
+                    pid = ctypes.wintypes.DWORD()
+                    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                    try:
+                        p = psutil.Process(pid.value)
+                        p_name = p.name().lower()
+                        if target_name in p_name or target_name in title.lower():
+                            target_hwnd = hwnd
+                            target_title = title
+                            return False
+                    except Exception:
+                        pass
+            return True
+
+        EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+        user32.EnumWindows(EnumProc(enum_cb), 0)
+
+        # If not already running, launch it
+        if not target_hwnd:
+            AppManager.open_app(target_name)
+            time.sleep(1.0)
+            user32.EnumWindows(EnumProc(enum_cb), 0)
+
+        if target_hwnd:
+            SW_MAXIMIZE = 3
+            SW_RESTORE = 9
+            # Restore & Maximize
+            user32.ShowWindow(target_hwnd, SW_RESTORE)
+            time.sleep(0.05)
+            user32.ShowWindow(target_hwnd, SW_MAXIMIZE)
+
+            # Windows foreground lock bypass
+            user32.keybd_event(0x12, 0, 0, 0)  # Alt down
+            user32.SetForegroundWindow(target_hwnd)
+            user32.keybd_event(0x12, 0, 2, 0)  # Alt up
+
+            return {
+                "success": True,
+                "target": target_name,
+                "window_title": target_title,
+                "status": f"Brought '{target_name.title()}' to foreground in full screen (others minimized).",
+            }
+        else:
+            return {
+                "success": False,
+                "target": target_name,
+                "error": f"Could not find or focus window for '{target_name}'.",
+            }
 

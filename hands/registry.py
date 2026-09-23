@@ -507,6 +507,55 @@ class ToolRegistry:
             func=AppManager.send_hotkey,
         )
 
+        # 19b. Tab & Window Navigation (🟢 SAFE)
+        self.register(
+            name="switch_tab",
+            description="Switch to next or previous tab in active or target browser.",
+            tier=SecurityTier.SAFE,
+            parameters={
+                "type": "object",
+                "properties": {
+                    "direction": {"type": "string", "description": "'next' or 'prev'", "default": "next"},
+                    "app_target": {"type": "string", "description": "Target browser (brave, chrome, edge)", "default": None},
+                },
+            },
+            func=AppManager.switch_tab,
+        )
+
+        self.register(
+            name="new_tab",
+            description="Open a new tab (Ctrl+T) in the browser.",
+            tier=SecurityTier.SAFE,
+            parameters={
+                "type": "object",
+                "properties": {
+                    "app_target": {"type": "string", "description": "Target browser (brave, chrome, edge)", "default": None},
+                },
+            },
+            func=AppManager.new_tab,
+        )
+
+        self.register(
+            name="close_tab",
+            description="Close the active tab (Ctrl+W) in the browser.",
+            tier=SecurityTier.SAFE,
+            parameters={
+                "type": "object",
+                "properties": {
+                    "app_target": {"type": "string", "description": "Target browser (brave, chrome, edge)", "default": None},
+                },
+            },
+            func=AppManager.close_tab,
+        )
+
+        self.register(
+            name="switch_window",
+            description="Switch to the next application window (Alt+Tab).",
+            tier=SecurityTier.SAFE,
+            parameters={"type": "object", "properties": {}},
+            func=AppManager.switch_window,
+        )
+
         # 20. Take Screenshot (🟢 SAFE)
         self.register(
             name="take_screenshot",
@@ -550,5 +599,46 @@ class ToolRegistry:
                 },
             },
             func=FileOrganizer.organize_directory,
+        )
+
+        # 22. Task View (All apps in small windows) (🟢 SAFE)
+        self.register(
+            name="show_task_view",
+            description="Open Windows Task View (Win + Tab) to tile all open windows like a 3-finger touchpad swipe.",
+            tier=SecurityTier.SAFE,
+            parameters={"type": "object", "properties": {}},
+            func=AppManager.show_task_view,
+        )
+
+        # 23. List Open Apps Formatted (🟢 SAFE)
+        self.register(
+            name="format_running_apps",
+            description="List all active open applications with process IDs and window titles in a clean list.",
+            tier=SecurityTier.SAFE,
+            parameters={"type": "object", "properties": {}},
+            func=AppManager.format_running_apps,
+        )
+
+        # 24. Switch and Fullscreen App (🟢 SAFE)
+        self.register(
+            name="switch_and_fullscreen_app",
+            description="Switch to an application, minimize other open windows, and maximize it to full screen.",
+            tier=SecurityTier.SAFE,
+            parameters={
+                "type": "object",
+                "properties": {
+                    "app_identifier": {
+                        "type": "string",
+                        "description": "Name of the app (e.g. 'brave', 'code', 'notepad', 'chrome', 'spotify').",
+                    },
+                    "minimize_others": {
+                        "type": "boolean",
+                        "description": "Whether to minimize other open windows first.",
+                        "default": True,
+                    },
+                },
+                "required": ["app_identifier"],
+            },
+            func=AppManager.switch_and_fullscreen_app,
         )
 

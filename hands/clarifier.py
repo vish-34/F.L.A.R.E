@@ -25,10 +25,18 @@ class TaskClarifier:
         print("🤖 FLARE DEVELOPER ASSISTANT: Clarification Dialogue")
         print("=" * 55)
 
+        # If user gave a very concise prompt like 'code' or 'script' without describing the task
+        task_desc = user_prompt.strip()
+        words = task_desc.lower()
+        if len(task_desc.split()) <= 2 and words in ["code", "script", "python", "python code", "write code", "write script", "make code", "make script", "new script", "new code"]:
+            task_input = prompt_input("📝 What should this script or code do? [Default: General Python Utility]: ").strip()
+            if task_input:
+                task_desc = task_input
+                words = task_desc.lower()
+
         # 1. Determine script filename or purpose
         filename = "script.py"
         # Try to infer from prompt
-        words = user_prompt.lower()
         if "fibonacci" in words:
             filename = "fibonacci.py"
         elif "download" in words or "youtube" in words:
@@ -73,6 +81,7 @@ class TaskClarifier:
 
         return {
             "filename": filename,
+            "task_description": task_desc,
             "target_directory": dest_dir,
             "open_in_editor": chosen_editor,
         }

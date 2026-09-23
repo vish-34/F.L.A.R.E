@@ -16,15 +16,26 @@ from ai_cascade.config import BrainSettings, list_configured_providers
 
 
 def print_banner():
-    print("=" * 65)
+    print("=" * 68)
     print(f"        FLARE — AI Operating System ({BrainSettings.USER_NAME})")
-    print("        Powered by Semantic Router & LiteLLM Multi-Provider Mesh")
-    print("=" * 65)
-    print("Commands:")
-    print("  'exit' or 'quit' : Shut down Flare")
-    print("  'keys'           : View currently loaded API providers")
-    print("  'clear'          : Clear conversation memory")
-    print("=" * 65)
+    print("        The Master Brain & Autonomous Hands (2026 Edition)")
+    print("=" * 68)
+    print("System Actions (⚡ 0 Tokens Spent | Local Windows Automation):")
+    print("  'open brave' / 'open notepad'  : Launch desktop applications")
+    print("  'play eminem without me'       : Direct YouTube autoplay in Brave")
+    print("  'set volume to 40%' / 'mute'   : Master audio control")
+    print("  'show desktop' / 'switch tabs' : Window & tab navigation")
+    print("  'system health' / 'vitals'     : CPU, RAM, Disk & Battery diagnostics")
+    print("  'write a python script'        : Interactive developer assistant & VS Code")
+    print("  'take screenshot'              : Instant desktop screen capture")
+    print("  'organize downloads'           : Group loose files into tidy subfolders")
+    print("-" * 68)
+    print("AI Cascade Intelligence:")
+    print("  Ask anything: Coding, system architecture, deep reasoning, chitchat")
+    print("-" * 68)
+    print("Security: 🟢 SAFE (Auto) | 🟡 CONFIRM (Prompt) | 🔴 STRICT (Verify)")
+    print("Commands: 'exit' / 'quit' | 'keys' | 'clear'")
+    print("=" * 68)
 
 
 def run_cli():

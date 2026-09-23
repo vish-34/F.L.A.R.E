@@ -152,6 +152,10 @@ class ProviderMesh:
                 "max_tokens": max_tokens,
                 "timeout": BrainSettings.DEFAULT_TIMEOUT_SECONDS,
             }
+            if "tools" in override_kwargs:
+                call_kwargs["tools"] = override_kwargs["tools"]
+            if "tool_choice" in override_kwargs:
+                call_kwargs["tool_choice"] = override_kwargs["tool_choice"]
 
             if api_key and provider != "ollama":
                 call_kwargs["api_key"] = api_key
@@ -213,7 +217,7 @@ class ProviderMesh:
                         ttft_ms=None,
                         fallback_occurred=(depth > 0),
                         fallback_depth=depth,
-                        raw_response=response
+                        raw_response=response,
                     )
 
             except Exception as e:

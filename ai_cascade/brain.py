@@ -14,6 +14,7 @@ from .config import BrainSettings, list_configured_providers
 from .intent.router import IntentRouter, IntentResult
 from .persona.flare_prompts import get_system_prompt, get_spokesperson_prompt
 from .mesh.provider_pool import ProviderMesh, GenerationResult
+from hands.orchestrator import HandsOrchestrator
 
 
 class FlareResponse(BaseModel):
@@ -27,7 +28,16 @@ class FlareResponse(BaseModel):
 
     def display_metrics(self) -> str:
         """Format metrics for CLI or HUD display."""
-        if self.is_dual_model and self.spokesperson_generation:
+        if self.generation.provider_used == "LOCAL_OS":
+            return (
+                f"\n--- [Flare OS Hands Telemetry] ---\n"
+                f"Action:       {self.intent.source}\n"
+                f"Tokens Spent: 0 (Zero-Token Fast System Path)\n"
+                f"Engine:       LOCAL_OS [{self.generation.model_used}]\n"
+                f"Latency:      {self.total_time_ms:.1f}ms\n"
+                f"----------------------------------"
+            )
+        elif self.is_dual_model and self.spokesperson_generation:
             spoke = self.spokesperson_generation
             work = self.generation
             return (
@@ -53,18 +63,21 @@ class FlareResponse(BaseModel):
 class FlareBrain:
     """
     The central intelligence unit for Flare.
-    Features Dual-Model Execution:
-    - Groq handles the conversation and verbal acknowledgment (<200ms)
-    - Specialist models (NVIDIA Qwen Coder, DeepSeek-R1) execute code & deep logic in backend
+    Coordinates:
+    - Zero-Token Local OS Action Engine (Hands)
+    - Sub-10ms Local Intent Classification (Semantic Router)
+    - Dual-Model Execution (Groq LPU spokesperson + Specialist models)
     """
 
     def __init__(self):
         print(f"[FlareBrain] Initializing Flare AI Operating System for {BrainSettings.USER_NAME}...")
+        self.hands = HandsOrchestrator()
         self.intent_router = IntentRouter()
         self.mesh = ProviderMesh()
         
         active = list_configured_providers()
         print(f"[FlareBrain] Active configured providers ({len(active)}): {', '.join(active) if active else 'None yet (add keys in .env)'}")
+        print(f"[FlareBrain] Hands OS Automation online (22 tools registered across 3 security tiers).")
         print(f"[FlareBrain] Online and ready, {BrainSettings.USER_NAME}.\n")
 
     def think(
@@ -74,24 +87,132 @@ class FlareBrain:
         force_tier: Optional[str] = None
     ) -> FlareResponse:
         """
-        Process user query through Flare's two-stage brain:
-        1. Classify intent locally in sub-10ms (semantic-router)
-        2. If task requires deep work (coding/reasoning):
-           - Stage 2A: Front-of-house spokesperson (Groq) acknowledges in <200ms
-           - Stage 2B: Specialist workhorse (NVIDIA Coder/DeepSeek) drafts code/reasoning
-           - Stage 2C: Return synthesised Jarvis reply
-        3. If general chat/system tools:
-           - Direct execution via Groq / primary tool tier
+        Process user query through Flare's intelligence cascade:
+        1. STAGE 0: Zero-Token Hands Interceptor (sub-5ms local Windows OS execution)
+        2. STAGE 1: Sub-10ms Local Intent Classification (semantic-router)
+        3. STAGE 2: Dual-Model Execution (Groq spokesperson + specialist workhorse) or Direct Path
         """
         start_time = time.perf_counter()
+
+        # --- STAGE 0: Zero-Token OS Hands Fast Interceptor ---
+        # Direct system tasks (open brave, play music, volume, vitals, desktop, tabs, screenshots, organize, code assistant)
+        # execute locally via Windows APIs with ZERO external LLM tokens spent.
+        hands_result = self.hands.handle_natural_input(user_input)
+        if hands_result.get("handled"):
+            latency = (time.perf_counter() - start_time) * 1000
+            intent_res = IntentResult(
+                route="system_control",
+                tier="hands-local",
+                confidence=1.0,
+                latency_ms=latency,
+                source=f"hands_fast_path ({hands_result.get('intent', 'system_action')})"
+            )
+            gen_res = GenerationResult(
+                content=hands_result.get("message", "Task completed."),
+                tier="hands-local",
+                model_used="flare-hands-v2",
+                provider_used="LOCAL_OS",
+                latency_ms=latency,
+                ttft_ms=0.0,
+                fallback_occurred=False,
+                fallback_depth=0
+            )
+            return FlareResponse(
+                reply=hands_result.get("message", "Action completed."),
+                intent=intent_res,
+                generation=gen_res,
+                spokesperson_generation=None,
+                is_dual_model=False,
+                total_time_ms=latency
+            )
 
         # Step 1: Sub-10ms Local Intent Classification
         intent = self.intent_router.classify(user_input)
         selected_tier = force_tier or intent.tier
 
+        # Step 1.5: If classified as system_control, attempt semantic cleanup and tool dispatch
+        if intent.route == "system_control":
+            # Strip conversational fluff (e.g. "flare please", "could you please", "can you")
+            import re
+            cleaned_command = re.sub(r"^(?:flare\s+)?(?:please\s+)?(?:could\s+you\s+)?(?:can\s+you\s+)?(?:i\s+want\s+to\s+)?", "", user_input, flags=re.IGNORECASE).strip()
+            retry_hands = self.hands.handle_natural_input(cleaned_command)
+            if retry_hands.get("handled"):
+                latency = (time.perf_counter() - start_time) * 1000
+                intent_res = IntentResult(
+                    route="system_control",
+                    tier="hands-local",
+                    confidence=intent.confidence,
+                    latency_ms=latency,
+                    source=f"hands_semantic_normalized ({retry_hands.get('intent')})"
+                )
+                gen_res = GenerationResult(
+                    content=retry_hands.get("message", "Task completed."),
+                    tier="hands-local",
+                    model_used="flare-hands-v2",
+                    provider_used="LOCAL_OS",
+                    latency_ms=latency,
+                    ttft_ms=0.0,
+                    fallback_occurred=False,
+                    fallback_depth=0
+                )
+                return FlareResponse(
+                    reply=retry_hands.get("message", "Action completed."),
+                    intent=intent_res,
+                    generation=gen_res,
+                    spokesperson_generation=None,
+                    is_dual_model=False,
+                    total_time_ms=latency
+                )
+
+            # Complex system tool request fallback via Groq with Hands Tool Schemas
+            try:
+                import json
+                tool_schemas = self.hands.registry.export_schemas()
+                tool_gen = self.mesh.generate(
+                    tier="flare-tools",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are FLARE Hands tool dispatcher. Select the exact tool that satisfies the user's OS operating request. "
+                                "Only call a tool if there is a direct match."
+                            ),
+                        },
+                        {"role": "user", "content": user_input}
+                    ],
+                    override_kwargs={
+                        "tools": tool_schemas,
+                        "tool_choice": "auto",
+                        "max_tokens": 200,
+                    }
+                )
+                raw_resp = tool_gen.raw_response
+                if raw_resp and hasattr(raw_resp, "choices") and raw_resp.choices:
+                    choice = raw_resp.choices[0]
+                    if hasattr(choice.message, "tool_calls") and choice.message.tool_calls:
+                        tc = choice.message.tool_calls[0]
+                        tool_name = tc.function.name
+                        tool_args = json.loads(tc.function.arguments or "{}")
+                        exec_res = self.hands.registry.execute(tool_name, **tool_args)
+                        status_msg = (
+                            exec_res.get("data", {}).get("status")
+                            or exec_res.get("status")
+                            or f"Executed tool '{tool_name}'."
+                        )
+                        latency = (time.perf_counter() - start_time) * 1000
+                        return FlareResponse(
+                            reply=f"Right away. {status_msg}",
+                            intent=intent,
+                            generation=tool_gen,
+                            spokesperson_generation=None,
+                            is_dual_model=False,
+                            total_time_ms=latency
+                        )
+            except Exception:
+                pass
+
         # Step 2: Automatic Complexity-Aware Routing
         # Dual-model execution is reserved ONLY for heavy workloads (marked with '-heavy')
-        # Simple/light coding or reasoning is routed directly to fast LPUs without wasting heavy model quotas
         is_heavy_task = selected_tier.endswith("-heavy")
 
         if is_heavy_task:

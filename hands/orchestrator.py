@@ -51,7 +51,31 @@ class HandsOrchestrator:
                 "message": f"Opened '{app_target}', waited {delay_sec} seconds, and gracefully closed it.",
             }
 
-        # 2. Browser Search Chained Commands (e.g. 'open brave and search youtube')
+        # 2. Chained Browser & Play Media Commands (e.g. 'open brave and play loser by dino james')
+        browser_play_match = re.search(
+            r"^(?:please\s+)?(?:open|launch)\s+(brave|chrome|edge)\s+(?:and|to)\s+play\s+(.+)$",
+            lower,
+        )
+        if browser_play_match:
+            browser = browser_play_match.group(1).strip()
+            media_query = browser_play_match.group(2).strip()
+            platform = "youtube"
+            if "on spotify" in media_query:
+                platform = "spotify"
+                media_query = media_query.replace("on spotify", "").strip()
+            elif "on youtube" in media_query:
+                platform = "youtube"
+                media_query = media_query.replace("on youtube", "").strip()
+
+            result = self.registry.execute("play_media", query=media_query, platform=platform, browser=browser)
+            return {
+                "handled": True,
+                "intent": "play_media",
+                "result": result,
+                "message": f"Playing '{media_query}' on {platform.title()} via {browser.title()}.",
+            }
+
+        # 3. Browser Search Chained Commands (e.g. 'open brave and search youtube')
         browser_search_match = re.search(r"open\s+(brave|chrome|edge)\s+and\s+search\s+(.+)$", lower)
         if browser_search_match:
             browser = browser_search_match.group(1).strip()
@@ -74,11 +98,19 @@ class HandsOrchestrator:
                     "message": f"Opened {browser.title()} and searched for '{query}'.",
                 }
 
-        # 3. Media Playback Intent (e.g. 'play loser by dino james', 'play eminem without me')
-        play_match = re.match(r"^(?:please\s+)?play\s+(.+)$", lower)
+        # 4. Media Playback Intent (e.g. 'play loser by dino james', 'play eminem without me')
+        play_match = re.search(r"^(?:please\s+)?(?:play|listen to)\s+(.+)$", lower)
         if play_match:
             media_query = play_match.group(1).strip()
             platform = "youtube"
+            browser = "brave"
+            if "in chrome" in media_query or "on chrome" in media_query:
+                browser = "chrome"
+                media_query = re.sub(r"\s*(?:in|on)\s+chrome", "", media_query).strip()
+            elif "in brave" in media_query or "on brave" in media_query:
+                browser = "brave"
+                media_query = re.sub(r"\s*(?:in|on)\s+brave", "", media_query).strip()
+
             if "on spotify" in media_query:
                 platform = "spotify"
                 media_query = media_query.replace("on spotify", "").strip()
@@ -86,12 +118,12 @@ class HandsOrchestrator:
                 platform = "youtube"
                 media_query = media_query.replace("on youtube", "").strip()
 
-            result = self.registry.execute("play_media", query=media_query, platform=platform, browser="brave")
+            result = self.registry.execute("play_media", query=media_query, platform=platform, browser=browser)
             return {
                 "handled": True,
                 "intent": "play_media",
                 "result": result,
-                "message": f"Playing '{media_query}' on {platform.title()} via Brave.",
+                "message": f"Playing '{media_query}' on {platform.title()} via {browser.title()}.",
             }
 
         # 4. Desktop & Screen Minimization Variations
@@ -107,9 +139,45 @@ class HandsOrchestrator:
                 "message": "Minimized all windows (Desktop shown).",
             }
 
+        # 4b. Task View: Show all open apps in small windows (3-finger gesture / Win+Tab)
+        if any(phrase in lower for phrase in [
+            "show me all apps open", "show all apps open", "show all apps", "show me all apps",
+            "show all windows", "show me all windows", "task view", "all open apps",
+            "overview of apps", "overview of all apps", "pull up all apps"
+        ]):
+            result = self.registry.execute("show_task_view")
+            return {
+                "handled": True,
+                "intent": "show_task_view",
+                "result": result,
+                "message": result.get("data", {}).get("status", "Opened Windows Task View (All open apps displayed in small windows)."),
+            }
+
+        # 4c. List open apps
+        if lower in ["list", "list apps", "list all apps", "what apps are open", "show running apps", "running apps", "open apps", "apps"]:
+            result = self.registry.execute("format_running_apps")
+            return {
+                "handled": True,
+                "intent": "list_apps",
+                "result": result,
+                "message": result.get("data", {}).get("status", "Listed running applications."),
+            }
+
+        # 4d. Switch to app and full-screen it (minimize rest)
+        switch_app_match = re.match(r"^(?:please\s+)?(?:switch\s+to|focus|bring\s+up|maximize)\s+([a-zA-Z0-9_\-\s]+)$", lower)
+        if switch_app_match and not any(w in lower for w in ["tab", "window"]):
+            app_target = switch_app_match.group(1).strip()
+            result = self.registry.execute("switch_and_fullscreen_app", app_identifier=app_target, minimize_others=True)
+            return {
+                "handled": True,
+                "intent": "switch_and_fullscreen_app",
+                "result": result,
+                "message": result.get("data", {}).get("status") or f"Switched to '{app_target}' in full screen.",
+            }
+
         # 5. Tab & Window Navigation (e.g. 'switch tabs', 'next tab', 'switch window')
         if any(phrase in lower for phrase in ["switch tab", "switch tabs", "next tab", "change tab"]):
-            result = self.registry.execute("send_hotkey", hotkey="ctrl+tab")
+            result = self.registry.execute("switch_tab", direction="next")
             return {
                 "handled": True,
                 "intent": "switch_tab",
@@ -118,16 +186,16 @@ class HandsOrchestrator:
             }
 
         if any(phrase in lower for phrase in ["prev tab", "previous tab"]):
-            result = self.registry.execute("send_hotkey", hotkey="ctrl+shift+tab")
+            result = self.registry.execute("switch_tab", direction="prev")
             return {
                 "handled": True,
                 "intent": "prev_tab",
                 "result": result,
-                "message": "Switched to previous tab.",
+                "message": "Switched to previous tab (Ctrl+Shift+Tab).",
             }
 
         if any(phrase in lower for phrase in ["close tab"]):
-            result = self.registry.execute("send_hotkey", hotkey="ctrl+w")
+            result = self.registry.execute("close_tab")
             return {
                 "handled": True,
                 "intent": "close_tab",
@@ -136,7 +204,7 @@ class HandsOrchestrator:
             }
 
         if any(phrase in lower for phrase in ["new tab"]):
-            result = self.registry.execute("send_hotkey", hotkey="ctrl+t")
+            result = self.registry.execute("new_tab")
             return {
                 "handled": True,
                 "intent": "new_tab",
@@ -145,7 +213,7 @@ class HandsOrchestrator:
             }
 
         if any(phrase in lower for phrase in ["switch window", "switch windows", "alt tab", "next window"]):
-            result = self.registry.execute("send_hotkey", hotkey="alt+tab")
+            result = self.registry.execute("switch_window")
             return {
                 "handled": True,
                 "intent": "switch_window",
@@ -210,15 +278,32 @@ class HandsOrchestrator:
             }
 
         # 10. Interactive Developer Script & Code Writing
-        coding_keywords = ["script", "code", "program", "function", "bot"]
-        action_verbs = ["write", "create", "make", "generate", "build", "code"]
+        # Hands script creation is for creating a runnable script/file on disk.
+        # Conversational questions asking for small snippets/functions (e.g. "write a python function to reverse a string")
+        # remain in conversational chat instead of prompting for file creation.
+        is_function_or_snippet = any(word in lower for word in ["function", "snippet", "regex", "example", "how do i", "how to"])
+        coding_triggers = [
+            "write script", "write a script", "create script", "create a script",
+            "make script", "make a script", "generate script", "build script",
+            "new script", "write python script", "write a python script",
+            "write code to", "write python code to", "write me code to",
+            "code to", "script to", "script for", "code for",
+            "create a python program", "write a program to", "write a bot",
+        ]
         is_coding_request = (
-            any(k in lower for k in coding_keywords) and any(v in lower for v in action_verbs)
-        ) or lower.startswith(("write me", "code me", "create a script", "write a python", "write python"))
+            not is_function_or_snippet
+            and (
+                any(trig in lower for trig in coding_triggers)
+                or lower in ["code", "script", "python script", "python code", "write script", "create script"]
+                or (lower.startswith(("write me", "code me", "create a script", "write python script")) and any(s in lower for s in ["script", "downloader", "scraper", "bot", "tool", "program"]))
+            )
+            and not lower.startswith(("open code", "launch code", "start code", "close code", "kill code"))
+        )
 
         if is_coding_request:
             clarified = TaskClarifier.clarify_coding_task(text)
             fn = clarified["filename"]
+            task_prompt = clarified.get("task_description") or text
 
             # Try generating real implementation code via Brain's Groq / Provider Mesh
             code_body = None
@@ -241,7 +326,7 @@ class HandsOrchestrator:
                             },
                             {
                                 "role": "user",
-                                "content": f"Write a complete, working Python script for the following task: {text}",
+                                "content": f"Write a complete, working Python script for the following task: {task_prompt}",
                             },
                         ],
                         max_tokens=1000,
@@ -290,10 +375,21 @@ if __name__ == "__main__":
                 "message": result.get("data", {}).get("status", f"Created script '{fn}'."),
             }
 
-        # 11. Simple App Launch fallback
-        open_match = re.match(r"^open\s+([a-zA-Z0-9_\-]+)$", lower)
+        # 11. Simple App Launch fallback (supports 'open', 'launch', 'start')
+        open_match = re.match(r"^(?:please\s+)?(?:open|launch|start)\s+([a-zA-Z0-9_\-\s]+)$", lower)
         if open_match:
-            app_target = open_match.group(1).strip()
+            raw_target = open_match.group(1).strip()
+            # Normalize common multi-word aliases
+            alias_map = {
+                "brave browser": "brave",
+                "chrome browser": "chrome",
+                "vs code": "code",
+                "visual studio code": "code",
+                "task manager": "taskmgr",
+                "file explorer": "explorer",
+                "calculator": "calc",
+            }
+            app_target = alias_map.get(raw_target, raw_target)
             result = self.registry.execute("open_app", app_identifier=app_target)
             return {
                 "handled": True,
@@ -302,10 +398,20 @@ if __name__ == "__main__":
                 "message": f"Opened '{app_target}'.",
             }
 
-        # 12. Simple App Close fallback
-        close_match = re.match(r"^close\s+([a-zA-Z0-9_\-]+)$", lower)
+        # 12. Simple App Close fallback (supports 'close', 'exit', 'quit', 'kill')
+        close_match = re.match(r"^(?:please\s+)?(?:close|exit|quit|kill)\s+([a-zA-Z0-9_\-\s]+)$", lower)
         if close_match:
-            app_target = close_match.group(1).strip()
+            raw_target = close_match.group(1).strip()
+            alias_map = {
+                "brave browser": "brave",
+                "chrome browser": "chrome",
+                "vs code": "code",
+                "visual studio code": "code",
+                "task manager": "taskmgr",
+                "file explorer": "explorer",
+                "calculator": "calc",
+            }
+            app_target = alias_map.get(raw_target, raw_target)
             result = self.registry.execute("close_app", app_identifier=app_target)
             return {
                 "handled": True,
